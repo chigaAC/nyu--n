@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Google Drive プロジェクト初期化</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    #log { white-space: pre-wrap; background: #f4f4f4; border: 1px solid #ccc; padding: 1em; margin-top: 1em; }
+    button { margin-top: 1em; padding: 0.5em 1em; }
+  </style>
+</head>
+<body>
+
+<h2>📁 Google Drive プロジェクト作成</h2>
+
+<button onclick="start()">開始</button>
+
+<pre id="log">（ここにログが表示されます）</pre>
+
+<script>
+  // 🔧 あなたの API キーとクライアント ID をここに入力してください
+  const API_KEY = AIzaSyBfpmOJjUQLpYdoOBXP4xz-gXIfoHyIiQQ;
+  const CLIENT_ID = 295167116096-sva04gs0vtr6hvof2r1cfdtlqre4ohpb.apps.googleusercontent.com;
+  const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+  const SCOPES = "https://www.googleapis.com/auth/drive.file";
+
+  function log(msg) {
+    document.getElementById("log").textContent += "\n" + msg;
+  }
+
+  async function start() {
+    log("▶️ 初期化開始...");
+    try {
+      await new Promise((resolve, reject) => {
+        gapi.load("client:auth2", { callback: resolve, onerror: reject });
+      });
+      log("✅ gapi.load 完了");
+
+      await gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: DISCOVERY_DOCS,
+        scope: SCOPES,
+      });
+      log("✅ gapi.client.init 完了");
+
+      const authInstance = gapi.auth2.getAuthInstance();
+      if (!authInstance.isSignedIn.get()) {
+        log("🔑 サインインを実行中...");
+        await authInstance.signIn();
+        log("✅ サインイン完了");
+      } else {
+        log("✔️ すでにサインイン済み");
+      }
+
+      const user = authInstance.currentUser.get();
+      const profile = user.getBasicProfile();
+      log("👤 ユーザー: " + profile.getName());
+
+      // ✅ Drive APIを試す
+      const response = await gapi.client.drive.files.list({ pageSize: 5 });
+      const files = response.result.files;
+      if (files && files.length > 0) {
+        log("📄 最近のファイル:");
+        files.forEach(f => log("- " + f.name));
+      } else {
+        log("📂 ファイルが見つかりません");
+      }
+
+} catch (err) {
+  console.error(err);
+  log("❌ エラー発生:\n" + (err.message || JSON.stringify(err, null, 2) || "詳細なし"));
+}
+  }
+</script>
+
+</body>
+</html>
