@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Google Drive プロジェクト作成</title>
+</head>
+<body>
+  <h2>📁 Google Drive プロジェクト作成</h2>
+  <input type="text" id="projectName" placeholder="プロジェクト名を入力" />
+  <button onclick="init()">開始</button>
+
+  <pre id="log">(ここにログが表示されます)</pre>
+
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script>
+    const clientId = "295167116096-sva04gs0vtr6hvof2r1cfdtlqre4ohpb.apps.googleusercontent.com";
+    const apiKey = "AIzaSyBfpmOJjUQLpYdoOBXP4xz-gXIfoHyIiQQ";
+    const scopes = "https://www.googleapis.com/auth/drive.file";
+
+    const log = msg => document.getElementById("log").textContent += `\n${msg}`;
+
+    async function init() {
+      log("▶️ 初期化開始...");
+      gapi.load("client:auth2", async () => {
+        log("✅ gapi.load 完了");
+        try {
+          await gapi.client.init({ apiKey, clientId, scope: scopes });
+          await gapi.auth2.getAuthInstance().signIn();
+          log("✅ 認証成功");
+          createProject();
+        } catch (e) {
+          log("❌ エラー発生:\n" + (e.message || JSON.stringify(e)));
+        }
+      });
+    }
+
+    async function createProject() {
+      const name = document.getElementById("projectName").value.trim();
+      if (!name) return log("❌ プロジェクト名を入力してください");
+
+      log(`📁 フォルダ '${name}' を作成中...`);
+      const res = await gapi.client.drive.files.create({
+        resource: {
+          name,
+          mimeType: "application/vnd.google-apps.folder"
+        }
+      });
+      const projectId = res.result.id;
+
+      const createSubfolder = async (subName) => {
+        const r = await gapi.client.drive.files.create({
+          resource: {
+            name: subName,
+            parents: [projectId],
+            mimeType: "application/vnd.google-apps.folder"
+          }
+        });
+        return r.result.id;
+      };
+
+      const memoFolderId = await createSubfolder("メモ");
+      const embedFolderId = await createSubfolder("埋め込みファイル");
+
+      const mapContent = {
+        projectName: name,
+        folders: {
+          memo: memoFolderId,
+          embed: embedFolderId
+        },
+        files: []
+      };
+
+      const blob = new Blob([JSON.stringify(mapContent, null, 2)], { type: "application/json" });
+      const metadata = {
+        name: "map.json",
+        parents: [projectId],
+        mimeType: "application/json"
+      };
+
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+      form.append("file", blob);
+
+      const upload = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+        method: "POST",
+        headers: new Headers({ Authorization: "Bearer " + gapi.auth.getToken().access_token }),
+        body: form
+      });
+
+      if (upload.ok) {
+        log("✅ プロジェクト作成完了");
+      } else {
+        log("❌ map.json アップロード失敗");
+      }
+    }
+  </script>
+</body>
+</html>
